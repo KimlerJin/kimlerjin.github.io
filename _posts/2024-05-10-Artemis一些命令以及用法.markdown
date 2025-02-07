@@ -1,0 +1,178 @@
+---
+layout: post
+title:  "Artemis的一些命令以及用法"
+date:   2024-05-10 11:17:55 +0800
+categories: jekyll update
+---
+# Artemis
+
+# 如何查看artemis queue状态？
+
+`./artemis queue stat --url tcp://localhost:61616 --user admin --password 'P@ssw0rd'`
+
+![artemis queue状态](/assets/images/artemis/image.png)
+
+
+
+* NAME                           :queue的名称
+* ADDRESS                    : address的名称
+* CONSUMER\_COUNT  :消费者数量
+* MESSAGE\_COUNT     :目前在queue中未被消费的数量
+* MESSAGE\_ADDED      :这个队列产生的所有消息数量
+* MESSAGE\_ACKED      :已经被处理掉的消息数量
+
+
+
+# 如何查看artemis address状态  ？
+
+`./artemis address show --url tcp://localhost:61616 --user admin --password 'P@ssw0rd' `
+
+![artemis address状态](/assets/images/artemis/image-1.png)
+
+
+# 如何清空Queue？
+
+`./artemis queue purge -url tcp://localhost:61616 --user admin --password 'P@ssw0rd' --name queueName`
+
+
+
+# 如何通过执行shell脚本批量删除artemis中的address？
+
+```shellscript
+#!/bin/bash
+#定义Artemis命令的基础部分
+BASE_COMMAND="./artemis address delete --url tcp://localhost:61616 --user admin --password P@ssw0rd"
+#指定包含地址ID的文件
+ADDRESS_FILE="bbb.txt"
+#读取文件，逐行执行删除命令
+while IFS= read -r address_id; do
+    # 构建完整的命令
+    FULL_COMMAND="${BASE_COMMAND} --name ${address_id}"
+     # 执行命令并捕获退出状态
+    if ! ${FULL_COMMAND}; then
+        echo "Error deleting address with ID ${address_id}, but continuing..."
+    fi
+done < "$ADDRESS_FILE"
+echo "Finished processing all addresses."
+```
+
+
+
+# Artemis中如何配置无效的Queue自动删除？
+
+```xml
+  <auto-delete-queues>true</auto-delete-queues>
+  <auto-delete-queues-delay>0</auto-delete-queues-delay>
+  <auto-delete-queues-message-count>0</auto-delete-queues-message-count>
+  <auto-delete-queues-skip-usage-check>false</auto-delete-queues-skip-usage-check>
+  <config-delete-queues>OFF</config-delete-queues>
+```
+
+
+
+## **一些关键标签说明**：
+
+### auto-delete-queues
+
+> Whether or not the broker should automatically delete **auto-created** queues when they have both 0 consumers and the message count is less than or equal to `auto-delete-queues-message-count`. Default is `true`.
+
+> 注意，只有auto-created的 queue才能被删除，通过java调用产生的queue不一定是**auto-created**的queue. 我们遇到过的典型例子就是Deploy Manager的心跳queue，由于调用api为 
+
+```java
+ArtemisContext artemisContext = WrapperContext.getInstance().getArtemisContext();
+ClientSession session = artemisContext.getSession();
+String myQueue = WrapperContext.getInstance().getMyId();
+session.createQueue(myQueue, RoutingType.ANYCAST, myQueue,false);
+```
+
+> 当尝试使用 `session.createQueue(myQueue, RoutingType.ANYCAST, myQueue, false);` 去创建queue的时候，此时这个queue并不会被auto delete掉，替换成如下API时` session.createQueue(myQueue, RoutingType.ANYCAST, myQueue, null, false, true);`才能被正确的auto delete
+
+##
+
+### auto-delete-queues-message-count
+
+> The message count that the queue must be less than or equal to before deleting auto-created queues. To disable message count check `-1` can be set. Default is `0` (empty queue).
+
+
+
+### auto-delete-queues-skip-usage-check
+
+> A queue will only be auto-deleted by default if it has actually been "used." A queue is considered "used" if any messages have been sent to it or any consumers have connected to it during its life. However, there are use-cases where it's useful to skip this check. When set to `true` it is **imperative** to also set `auto-delete-queues-delay` to a value greater than `0` otherwise queues may be deleted almost immediately after being created. In this case the queue will be deleted based on when it was created rather then when it was last "used." Default is `false`.
+
+> the above auto-delete address settings can also be configured individually at the queue level when a client auto creates the queue.
+
+> For Core API it is exposed in createQueue methods.
+
+> For Core JMS you can set it using the destination queue attributes `my.destination?auto-delete=true&auto-delete-delay=120000&auto-delete-message-count=-1`
+
+
+
+
+
+# Artemis中如何配置无效的Address自动删除？
+
+```xml
+<auto-delete-addresses>true</auto-delete-addresses>
+<auto-delete-addresses-delay>0</auto-delete-addresses-delay>
+<auto-delete-addresses-skip-usage-check>false</auto-delete-addresses-skip-usage-check>
+<config-delete-addresses>OFF</config-delete-addresses>
+```
+
+## 一些关键标签说明
+
+### auto-create-addresses
+
+> Whether or not the broker should automatically create an address when a message is sent to or a consumer tries to consume from a queue which is mapped to an address whose name fits the address `match`. Default is `true`.
+
+### auto-delete-addresses
+
+> Whether or not the broker should automatically delete auto-created addresses once the address no longer has any queues. Default is `true`.
+
+
+
+### auto-delete-addresses-delay
+
+> How long to wait (in milliseconds) before deleting auto-created addresses after they no longer have any queues. Default is `0` (delete immediately). The broker's `address-queue-scan-period` controls how often (in milliseconds) addresses are scanned for potential deletion. Use `-1` to disable scanning. The default scan value is `30000`.
+
+
+
+### auto-delete-addresses-skip-usage-check
+
+> An address will only be auto-deleted by default if it has actually been "used." An address is considered "used" if any queues have been created on it during its life. However, there are use-cases where it's useful to skip this check. When set to `true` it is **imperative** to also set `auto-delete-addresses-delay` to a value greater than `0` otherwise addresses may be deleted almost immediately after being created. In this case the address will be deleted based on when it was created rather then when it was last "used." Default is `false`.
+
+### config-delete-addresses
+
+> How the broker should handle addresses deleted on config reload, by delete policy: `OFF` or `FORCE`. Default is `OFF`. Read more about [configuration reload](https://activemq.apache.org/components/artemis/documentation/latest/config-reload.html#configuration-reload).
+
+
+
+
+
+# 消息类型
+
+## 1.Anycast
+
+The most common use-case for anycast semantics, sometimes referred to as [point-to-point](https://activemq.apache.org/components/artemis/documentation/latest/messaging-concepts.html#point-to-point), involves applications following a "competing consumer" pattern to receive messages from a shared queue. The more consumers receiving messages the greater the overall message throughput. Multiple Java applications sharing a JMS queue is a classic example of this use-case.
+
+In this use-case the broker is configured, for example, with an address, `address.foo` using the `anycast` routing type with just one queue, `q1`. When a producer sends a message to `address.foo` it is then routed to `q1` and finally dispatched to one of the consumers.
+
+最常见的 anycast 语义用例，有时被称为[点对点](https://activemq.apache.org/components/artemis/documentation/latest/messaging-concepts.html#point-to-point)，涉及应用程序遵循"竞争消费者"模式，从共享队列接收消息。接收消息的消费者越多，整体消息吞吐量越大。多个 Java 应用程序共享一个 JMS 队列是这一用例的经典示例。
+在这个用例中，例如，使用 `anycast` 路由类型配置了一个地址 `address.foo`，只设置了一个队列 `q1`。当生产者向 `address.foo` 发送消息时，消息随后被路由到 `q1`，最终分发给其中一个消费者。
+
+![anycast示意图](/assets/images/artemis/image-2.png)
+
+
+
+
+
+
+## Multicast
+
+The most common use-case for multicast semantics, sometimes referred to as [publish/subscribe](https://activemq.apache.org/components/artemis/documentation/latest/messaging-concepts.html#publish-subscribe) or "pub/sub", involves each application receiving every message sent to an address. Multiple applications consuming from a JMS topic is a classic example of this use-case. MQTT subscriptions is another supported example of multicast semantics.
+
+In this use-case the broker is configured with an address, `address.foo` using the `multicast` routing type with two queues, `q1` & `q2`. When a producer sends a message to `address.foo` it is then routed to *both* `q1` & `q2` so that ultimately both consumers receive the same messages.
+
+多播语义最常见的用例，有时被称为[发布/订阅](https://activemq.apache.org/components/artemis/documentation/latest/messaging-concepts.html#publish-subscribe)或"pub/sub"，涉及每个应用程序接收发送到一个地址的每条消息。多个应用程序从JMS主题消费是这种用例的经典示例。MQTT订阅是另一个支持的多播语义示例。
+在这种用例中，经纪人配置了一个地址，`address.foo`，使用`multicast`路由类型和两个队列，`q1` & `q2`。当生产者向`address.foo`发送消息时，它随后被路由到`q1` & `q2`*两者*，以便最终两个消费者接收到相同的消息。
+
+![multicast示意图](/assets/images/artemis/image-3.png)
