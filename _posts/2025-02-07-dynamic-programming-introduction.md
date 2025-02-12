@@ -22,7 +22,7 @@ categories: blog
 ``Question``
 ``给定n个物品，第i个物品的重量为 wgt[i-1] 价值为 val[i-1] ，和一个容量为 cap 
  的背包。每个物品只能选择一次，问在限定背包容量下能放入物品的最大价值。``
-![img.png](../assets/images/dp/img.png)
+![img.png](/assets/images/dp/img.png)
 
 我们可以将0-1背包问题看成由n轮决策的问题，该问题的目标求解是：“在限定的背包容量下放入物品的最大价值”，因此较大概率是一个动态规划问题
 
@@ -117,7 +117,7 @@ public class Test {
     }
 ```
 递归树如下：观察可以发现dp[1,10] 多次使用，重复计算了，因此可以引入记忆
-![img_1.png](../assets/images/dp/img_1.png)
+![img_1.png](/assets/images/dp/img_1.png)
 ## 2：记忆化搜索
 ```java
 public class Test {
@@ -150,7 +150,7 @@ public class Test {
 
 }
 ```
-![img_2.png](../assets/images/dp/img_2.png)
+![img_2.png](/assets/images/dp/img_2.png)
 
 ## 3:动态规划
 ```java
@@ -170,10 +170,10 @@ public class Test {
 
     }
 ```
-![img_3.png](../assets/images/dp/img_3.png)
+![img_3.png](/assets/images/dp/img_3.png)
 
 ## 4.空间优化
-![img_4.png](../assets/images/dp/img_4.png)
+![img_4.png](/assets/images/dp/img_4.png)
 ```java
 /* 0-1 背包：空间优化后的动态规划 */
 int knapsackDPComp(int[] wgt, int[] val, int cap) {
