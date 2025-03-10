@@ -182,7 +182,7 @@ public class Test {
 int knapsackDPComp(int[] wgt, int[] val, int cap) {
     int n = wgt.length;
     // 初始化 dp 表
-    int[] dp = new int[cap + 1];
+    int[] dp = new int[cap + 1];ss
     // 状态转移
     for (int i = 1; i <= n; i++) {
         // 倒序遍历
